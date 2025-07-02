@@ -1,4 +1,4 @@
-getgenv().WebHookURL = "http://127.0.0.1:5000/"
+getgenv().WebHookURL = "http://127.0.0.1:8080/"
 
 repeat task.wait() until game:IsLoaded()
 task.wait(3)
