@@ -1,4 +1,4 @@
-local webhook = "https://e913-92-38-25-155.ngrok-free.app/"
+local webhook = "http://127.0.0.1:5000/"
 local httprequest = (syn and syn.request) or http and http.request or http_request or (fluxus and fluxus.request) or request
 local HttpService = game:GetService("HttpService")
 local playerName = game.Players.LocalPlayer.Name
