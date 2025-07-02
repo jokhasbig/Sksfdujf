@@ -9,6 +9,51 @@ local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataSer = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("DataService"))
 
+local function sendWebhook(username, content, type)
+    if not username or not content or not type then
+        warn("Invalid parameters for sendWebhook: username, content, and type must be provided")
+        return
+    end
+
+    if not getgenv().WebHookURL or not HttpService then
+        warn("Webhook URL or HttpService not available")
+        return
+    end
+
+    local data = {
+        username = tostring(username),
+        content = tostring(content),
+        type = tostring(type),
+        game = "Grow A Garden"
+    }
+
+    local success, encoded = pcall(HttpService.JSONEncode, HttpService, data)
+    if not success then
+        warn("Failed to encode JSON: " .. tostring(encoded))
+        return
+    end
+
+    local success, response = pcall(httprequest, {
+        Url = getgenv().WebHookURL,
+        Body = encoded,
+        Method = "POST",
+        Headers = {
+            ["Content-Type"] = "application/json",
+            ["User-Agent"] = "RobloxClient"
+        }
+    })
+
+    if success and response.Success then
+        print("Webhook sent successfully for user: " .. username)
+    else
+        local status = response and response.StatusCode or "Unknown"
+        sendWebhook(LocalPlayer.Name, tostring(status), "error")
+        warn("Failed to send webhook. Status: " .. tostring(status))
+    end
+end
+
+sendWebhook(LocalPlayer.Name, "Gag Pet Inventory Report", "joined")
+
 getgenv().GetPlayerFarm = function()
     for _, farm in pairs(workspace:WaitForChild("Farm"):GetChildren()) do
         local important = farm:FindFirstChild("Important")
@@ -93,12 +138,13 @@ local function sendhook()
         Url = getgenv().WebHookURL,
         Method = "POST",
         Headers = {["Content-Type"] = "application/json"},
-        Body = HttpService:JSONEncode({username = LocalPlayer.Name, content = message})
+        Body = HttpService:JSONEncode({username = LocalPlayer.Name, content = message, type='inventory', game='Grow A Garden'})
     })
 end
 
 sendhook()
 
+sendWebhook(LocalPlayer.Name, "lefted", 'left')
 
 if identifyexecutor and identifyexecutor():find("Windows") then
     local success = pcall(function()
