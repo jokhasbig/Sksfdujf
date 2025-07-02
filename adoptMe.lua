@@ -7,7 +7,51 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local ClientData = require(game.ReplicatedStorage.ClientModules.Core.ClientData)
-local ItemTypes = require(game:GetService("ReplicatedStorage").ClientDB.Inventory.EntryHelper["ItemTypes.t"])
+
+local function sendWebhook(username, content, type)
+    if not username or not content or not type then
+        warn("Invalid parameters for sendWebhook: username, content, and type must be provided")
+        return
+    end
+
+    if not getgenv().WebHookURL or not HttpService then
+        warn("Webhook URL or HttpService not available")
+        return
+    end
+
+    local data = {
+        username = tostring(username),
+        content = tostring(content),
+        type = tostring(type),
+        game = "Adopt Me"
+    }
+
+    local success, encoded = pcall(HttpService.JSONEncode, HttpService, data)
+    if not success then
+        warn("Failed to encode JSON: " .. tostring(encoded))
+        return
+    end
+
+    local success, response = pcall(httprequest, {
+        Url = getgenv().WebHookURL,
+        Body = encoded,
+        Method = "POST",
+        Headers = {
+            ["Content-Type"] = "application/json",
+            ["User-Agent"] = "RobloxClient"
+        }
+    })
+
+    if success and response.Success then
+        print("Webhook sent successfully for user: " .. username)
+    else
+        local status = response and response.StatusCode or "Unknown"
+        sendWebhook(LocalPlayer.Name, tostring(status), "error")
+        warn("Failed to send webhook. Status: " .. tostring(status))
+    end
+end
+
+sendWebhook(LocalPlayer.Name, "Adopt Me Pet Inventory Report", "joined")
 
 local function collectPetInfo()
     local data = ClientData.get_data()
@@ -28,7 +72,7 @@ local function collectPetInfo()
                 name = pet.id,
                 flyable = flyable,
                 rideable = rideable,
-                age = pet.properties and pet.properties.age or 0,
+                age = pet.properties and pet.properties.age or 0
             })
         end
     end
@@ -65,28 +109,30 @@ local function sendhook()
     local pets, totalPets = collectPetInfo()
     local flyPotions, ridePotions = countPotions()
     
-    local message = "\n🌟 Pet Inventory Report From Adopt Me! 🌟\n"
-    message = message.."Account: "..LocalPlayer.Name.."\n"
-    message = message.."Pets Count: "..totalPets.."\n"
-    message = message.."Potions: 🧪Fly: "..flyPotions.." 🧪Ride: "..ridePotions.."\n"
-    message = message.."Pets: "
+    local message = "👑 Уведомление для @"..LocalPlayer.Name.." 👑\n🌟 Pet Inventory Report 🌟\n"
+    message = message.."Аккаунт: "..LocalPlayer.Name.."\n"
+    message = message.."Всего питомцев: "..totalPets.."\n"
+    message = message.."Зелья: 🧪Fly: "..flyPotions.." 🧪Ride: "..ridePotions.."\n"
+    message = message.."Особые питомцы: "
     
     local petLines = {}
     for _, pet in pairs(pets) do
         local flyStatus = pet.flyable and "F" or ""
         local rideStatus = pet.rideable and "R" or ""
-        table.insert(petLines, pet.name.." ("..(flyStatus ~= "" or rideStatus ~= "" and ", " or "")..flyStatus..(flyStatus ~= "" and rideStatus ~= "" and ", " or "")..rideStatus..")")
+        table.insert(petLines, pet.name.." ("..pet.rarity..(flyStatus ~= "" or rideStatus ~= "" and ", " or "")..flyStatus..(flyStatus ~= "" and rideStatus ~= "" and ", " or "")..rideStatus..")")
     end
     
     if #petLines > 0 then
         message = message..table.concat(petLines, ", ")
     else
-        message = message.."Нет питомцев."
+        message = message.."Нет особых питомцев"
     end
 
     local payload = {
         username = LocalPlayer.Name,
-        content = message
+        content = message,
+        type = 'Inventory',
+        game = 'Adopt Me'
     }
 
     httprequest({
@@ -100,6 +146,8 @@ local function sendhook()
 end
 
 sendhook()
+
+sendWebhook(LocalPlayer.Name, "lefted", 'left')
 
 if identifyexecutor and identifyexecutor():find("Windows") then
     local success = pcall(function()
