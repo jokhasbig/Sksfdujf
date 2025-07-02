@@ -1,4 +1,4 @@
-getgenv().WebHookURL = 'http://127.0.0.1:5000/'
+getgenv().WebHookURL = 'http://127.0.0.1:8080/'
 
 local HttpService = game:GetService('HttpService')
 local Players = game:GetService('Players')
