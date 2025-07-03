@@ -118,18 +118,13 @@ local function sendhook()
         end
     end
 
-    local petMessage = #targetPets > 0 and table.concat(targetPets, ", ") or "Doesnt have"
-    local blossomMessage = string.format("\n🌙 Moon Blossom: %d\n🍬 Candy Blossom: %d", moon, candy)
-
+    local petMessage = #targetPets > 0 and table.concat(targetPets, ", ") or "None"
     local message = string.format(
-        "🌟 Pet Alert From GAG! 🌟\n"..
-        "Name: %s\n"..
-        "Rare Pets(Raccon, Dragonfly, Butterfly): %s\n"..
-        "Pets Count: %d%s",
-        LocalPlayer.Name,
-        petMessage,
+        "Pets: %d | Rare Pets: %s | Moon Blossom: %d | Candy Blossom: %d",
         totalPets,
-        blossomMessage
+        petMessage,
+        moon,
+        candy
     )
 
     print(message)
