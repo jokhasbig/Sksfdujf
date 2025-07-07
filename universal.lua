@@ -116,7 +116,7 @@ if PlaceId == 126884695634066 then
         local pets = collectPetInfo()
         local totalPets = #pets
         local targetPets = {}
-        local targetTypes = {"Raccoon", "Butterfly", "Dragonfly"}
+        local targetTypes = {"Raccoon", "Butterfly", "Dragonfly", "Red Fox", "Mimic Octopus", "Fennec Fox"}
 
         for _, pet in ipairs(pets) do
             for _, targetType in ipairs(targetTypes) do
